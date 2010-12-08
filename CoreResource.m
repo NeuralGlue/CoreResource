@@ -133,7 +133,7 @@
 }
 
 - (NSString*) toJson:(id)options {
-    NSMutableDictionary* mOptions = options != nil ? [options mutableCopy] : [NSMutableDictionary dictionary];
+    NSMutableDictionary* mOptions = options != nil ? [[options mutableCopy]autorelease] : [NSMutableDictionary dictionary];
     [mOptions setObject:$B(YES) forKey:@"$serializeDates"];
     return [[self properties:mOptions] JSONRepresentation];
 }
@@ -440,7 +440,7 @@
                 // Get relationship class from core data info
                 NSRelationshipDescription *relationshipDescription = (NSRelationshipDescription*)propertyDescription;
                 Class relationshipClass = NSClassFromString([[relationshipDescription destinationEntity] managedObjectClassName]);
-                id newRelatedResources;
+                id newRelatedResources = nil;
                 id existingRelatedResources = [self valueForKey:localField];
 
                 // Get relationship options

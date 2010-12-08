@@ -27,10 +27,10 @@
 #pragma mark -
 #pragma mark Results methods
 - (Class) model;
-- (int) resultsSectionCount;
+- (NSUInteger) resultsSectionCount;
 - (BOOL) hasResults;
 - (id) resultsInfoForSection:(int)section;
-- (int) resultsCountForSection:(int)section;
+- (NSUInteger) resultsCountForSection:(NSUInteger)section;
 - (CoreResource*) resourceAtIndexPath:(NSIndexPath*)indexPath;
 - (NSString*) noResultsMessage;
 - (BOOL) hasNoResultsMessage;

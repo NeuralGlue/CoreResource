@@ -42,7 +42,7 @@
         [self addObject:obj];
 }
 
-- (void) padOrTruncateToSize:(int)size withInstancesOfClass:(Class)klass {
+- (void) padOrTruncateToSize:(NSUInteger)size withInstancesOfClass:(Class)klass {
     if (size > [self count])
         [self padToSize:size withInstancesOfClass:klass];
     else if (size < [self count])

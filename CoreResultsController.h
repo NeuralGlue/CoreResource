@@ -16,7 +16,7 @@
     Class entityClass;
 }
 
-@property (nonatomic) Class entityClass;
+@property (nonatomic, assign) Class entityClass; //CHANGED explicitly set assign for LLVM 1.5
 
 - (void) fetch;
 - (void) fetchWithSort:(id)sort;

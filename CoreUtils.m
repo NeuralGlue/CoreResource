@@ -33,7 +33,7 @@ static NSTimeInterval globalStopwatch;
     NSArray* sortChunks = [string componentsSeparatedByString:@" "];
     if ([sortChunks count] % 2 == 0) {
         sortDescriptors = [NSMutableArray arrayWithCapacity:[sortChunks count] / 2];
-        for (int chunkIdx = 0; chunkIdx < [sortChunks count]; chunkIdx += 2) {
+        for (NSUInteger chunkIdx = 0; chunkIdx < [sortChunks count]; chunkIdx += 2) {
             [sortDescriptors addObject:
                 [[[NSSortDescriptor alloc] initWithKey:[sortChunks objectAtIndex:chunkIdx] ascending:
                     [[sortChunks objectAtIndex:chunkIdx + 1] caseInsensitiveCompare:@"asc"] == NSOrderedSame] autorelease]];

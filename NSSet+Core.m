@@ -12,13 +12,13 @@
 @implementation NSSet (Core)
 
 - (NSSet*) intersection:(NSSet*)otherSet {
-    NSMutableSet *intersection = [self mutableCopy];
+    NSMutableSet *intersection = [[self mutableCopy] autorelease];
 	[intersection intersectSet:otherSet];
 	return intersection;
 }
 
 - (NSSet*) difference:(NSSet*)otherSet {
-    NSMutableSet *difference = [self mutableCopy];
+    NSMutableSet *difference = [[self mutableCopy] autorelease];
     [difference minusSet:otherSet];
     return difference;
 }

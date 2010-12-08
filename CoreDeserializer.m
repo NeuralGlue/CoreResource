@@ -9,7 +9,7 @@
 #import "CoreDeserializer.h"
 #import "CoreResult.h"
 #import "NSObject+Core.h"
-#import "SBJSON.h"
+#import "JSON.h" //CHANGED renamed from SBJSON.h
 #import "CoreUtils.h"
 
 @implementation CoreDeserializer
@@ -20,7 +20,7 @@ static NSArray* allowedFormats;
 @synthesize target, action;
 
 - (id) initWithSource:(id)sourceObj andResourceClass:(Class)clazz {
-    if (self = [super init]) {
+    if ((self = [super init])) {
         self.source = sourceObj;
         self.resourceClass = clazz;
     }
@@ -196,7 +196,7 @@ static NSArray* allowedFormats;
 - (id) resourcesFromString:(NSString*)string {
 
     // Deserialize JSON
-    SBJsonParser *jsonParser = [SBJsonParser new];
+    SBJsonParser *jsonParser = [[SBJsonParser new] autorelease];
     id jsonData = [jsonParser objectWithString:string];
     if (jsonData == nil) { // Record error and return if JSON parsing failed
         error = [[[NSError alloc] initWithDomain:$S(@"JSON parsing failed: %@", [jsonParser errorTrace]) code:0 userInfo:nil] retain];
@@ -297,7 +297,7 @@ static NSArray* allowedFormats;
         
         // Make root dictionary mutable if not already so
         if (![rootData isKindOfClass:[NSMutableDictionary class]])
-            rootData = [rootData mutableCopy];
+            rootData = [[rootData mutableCopy] autorelease];
 
         // Process nested collections
         for (id key in rootData) {

@@ -22,6 +22,6 @@
 - (void) padToSize:(int)size;
 - (void) padToSize:(int)size withInstancesOfClass:(Class)klass;
 - (void) padToSize:(int)size withObject:(id)obj;
-- (void) padOrTruncateToSize:(int)size withInstancesOfClass:(Class)klass;
+- (void) padOrTruncateToSize:(NSUInteger)size withInstancesOfClass:(Class)klass;
 
 @end

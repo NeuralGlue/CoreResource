@@ -35,7 +35,7 @@ static CoreManager* _main;
 }
 
 - (id) initWithOptions:(NSDictionary*)options {
-    if (self = [super init]) {
+    if ((self = [super init])) {
         if (_main == nil)
             _main = self;
         requestQueue = [[NSOperationQueue alloc] init];
@@ -82,7 +82,7 @@ static CoreManager* _main;
 #pragma mark Networking
 
 - (void) enqueueRequest:(ASIHTTPRequest*)request {
-    if ([CoreManager main].logLevel > 2);
+    if ([CoreManager main].logLevel > 2) // CHANGED removed smicolon
         NSLog(@"[CoreManager#enqueueRequest] request queued: %@", request.url);
     [requestQueue addOperation:request];
 }
@@ -136,7 +136,7 @@ static CoreManager* _main;
 - (NSManagedObjectContext*)newContext {
     NSManagedObjectContext* context = [[NSManagedObjectContext alloc] init];
     [context setPersistentStoreCoordinator:persistentStoreCoordinator];
-    return [context autorelease];
+    return context; // note that this is not an autoreleased object
 }
 
 

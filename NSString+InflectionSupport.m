@@ -23,7 +23,7 @@ static NSMutableDictionary *cachedCamelized;
 	NSMutableString *underscored = [NSMutableString string];
 	
 	NSString *currChar;
-	for (int i = 0; i < [self length]; i++) {
+	for (NSUInteger i = 0; i < [self length]; i++) {
 		currChar = [NSString stringWithCharacters:buffer+i length:1];
 		if([[self capitals] characterIsMember:buffer[i]]) {
 			[underscored appendFormat:@"%@%@", delimiter, [currChar lowercaseString]];
@@ -57,7 +57,7 @@ static NSMutableDictionary *cachedCamelized;
 	
 	BOOL capitalizeNext = NO;
 	NSCharacterSet *delimiters = [self camelcaseDelimiters];
-	for (int i = 0; i < [self length]; i++) {
+	for (NSUInteger i = 0; i < [self length]; i++) {
 		NSString *currChar = [NSString stringWithCharacters:buffer+i length:1];
 		if([delimiters characterIsMember:buffer[i]]) {
 			capitalizeNext = YES;

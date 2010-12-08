@@ -26,7 +26,7 @@
             if ([CoreManager main].bundleRequestDelay == 0)
                 [delegate performSelector:didFinishSelector withObject:self];
             else {
-                [delegate performSelector:didFinishSelector withObject:self afterDelay:[CoreManager main].bundleRequestDelay];
+                [((NSObject *)delegate) performSelector:didFinishSelector withObject:self afterDelay:[CoreManager main].bundleRequestDelay];
             }
         }
     }

@@ -10,7 +10,7 @@
 
 #import "CoreTableController.h"
 #import "NSString+InflectionSupport.h"
-
+#import "CoreUtils.h" //CHANGED new import
 
 @implementation CoreTableController;
 
@@ -28,7 +28,7 @@ static float defaultTableReloadDelay = 0.25;
         [[NSStringFromClass([self class]) stringByReplacingOccurrencesOfString:@"Controller" withString:@""] singularize]);
 }
 
-- (int) resultsSectionCount {
+- (NSUInteger) resultsSectionCount {
     return [[[self coreResultsController] sections] count];
 }
 
@@ -40,7 +40,7 @@ static float defaultTableReloadDelay = 0.25;
     return [[[self coreResultsController] sections] objectAtIndex:section];
 }
 
-- (int) resultsCountForSection:(int)section {
+- (NSUInteger) resultsCountForSection:(NSUInteger)section {
     if (section < [self resultsSectionCount])
         return [[self resultsInfoForSection:section] numberOfObjects];
     return 1;

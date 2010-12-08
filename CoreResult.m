@@ -24,7 +24,7 @@
 }
 
 - (id) initWithSource:(id)theSource andResources:(id)theResources {
-    if (self = [super init]) {
+    if ((self = [super init])) {
         source = [theSource retain];
         resources = [ToArray(theResources) retain];
     }
@@ -33,10 +33,11 @@
 }
 
 - (id) initWithError:(NSError*)theError {
-    if (self = [super init]) {
+    if ((self = [super init])) {
         error = [theError retain];
+		NSLog(@"CoreResult with error: %@", error);
+
     }
-    NSLog(@"CoreResult with error: %@", error);
     return self;
 }
 
