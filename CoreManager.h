@@ -52,12 +52,18 @@
 @property (nonatomic, retain) NSMutableDictionary *modelRelationships;
 @property (nonatomic, retain) NSMutableDictionary *modelAttributes;
 
+@property (nonatomic, retain) NSString *debugName;
 @property (nonatomic, assign) int logLevel;
 
-+ (CoreManager*) main;
-+ (void) setMain: (CoreManager*)newMain;
+#pragma mark -
+#pragma mark Singleton Methods
 
-- (id) initWithOptions:(NSDictionary*)options;
++ (CoreManager*) main __attribute__ ((deprecated));
++ (void) setMain: (CoreManager*)newMain __attribute__ ((deprecated));
+
++(CoreManager *) sharedCoreManager;
+
+- (id) initWithOptions:(NSDictionary*)options __attribute__ ((deprecated));
 - (NSString*)applicationDocumentsDirectory;
 
 #pragma mark -

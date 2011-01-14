@@ -17,11 +17,20 @@
 
 @implementation CoreResource
 
+@synthesize remoteDidFinishSelector, remoteDidFailSelector;
 #pragma mark -
 #pragma mark Configuration
 
+-(id)initWithEntity:(NSEntityDescription *)entity insertIntoManagedObjectContext:(NSManagedObjectContext *)context {
+	if ((self = [super initWithEntity:entity insertIntoManagedObjectContext:context])){
+		self.remoteDidFailSelector = @selector(remoteDidFail:);
+		self.remoteDidFinishSelector = @selector(remoteDidFinish:);
+	}
+	return self;
+}
+
 + (CoreManager*) coreManager {
-    return [CoreManager main];
+    return [CoreManager sharedCoreManager];
 }
 
 + (BOOL) useBundleRequests {
@@ -40,12 +49,18 @@
     return [NSString stringWithFormat:@"%@/%@", [self remoteSiteURL], [self remoteCollectionName]];
 }
 
+//TODO: depreciate this. Doesn't make sense to be using an ivar for a static method.
 + (NSString*) remoteURLForResource:(id)resourceId action:(Action)action {
     return [NSString stringWithFormat:@"%@/%@/%@", [[self class] remoteSiteURL], [[self class] remoteCollectionName], resourceId]; 
 }
 
 - (NSString*) remoteURLForAction:(Action)action {
-    return [[self class] remoteURLForResource:[self localId] action:action];
+	NSString *suffix = @"";
+	if (action != Create) {
+		suffix = [NSString stringWithFormat:@"/%d", [self localId]];
+	}
+	return [NSString stringWithFormat:@"%@/%@%@", [[self class] remoteSiteURL], [[self class] remoteCollectionName],suffix];
+    //return [[self class] remoteURLForResource:[self localId] action:action];
 }
 
 + (NSString*) bundlePathForCollectionAction:(Action)action {
@@ -62,11 +77,37 @@
 
 + (void) configureRequest:(CoreRequest*)request forAction:(NSString*)action {}
 
-
+-(NSString *)HTTPMethodForAction:(Action)action {
+	NSString *headString = nil;
+	switch (action) {
+		case Create:
+			headString = @"POST";
+			break;
+		case Read:
+			headString = @"GET";
+			break;
+		case Update:
+			headString = @"PUT";
+			break;
+		case Destroy:
+			headString = @"DELETE";
+			break;
+		default:
+			headString = @"GET" ;// default to immutable request
+			break;
+	}
+	return headString;
+}
 
 #pragma mark -
 #pragma mark Serialization
-
++(BOOL)usesRootNode {
+	return YES;
+}
++ (NSString *) rootNodeName{
+	
+	return [[self entityName] lowercaseString];
+}
 + (NSString*) localNameForRemoteField:(NSString*)name {
     return name;
 }
@@ -150,6 +191,7 @@
     NSArray* only = [options objectForKey:@"$only"];
     NSArray* except = [options objectForKey:@"$except"];
     BOOL serializeDates = [[options objectForKey:@"$serializeDates"] boolValue];
+	BOOL includeObjectId = [[options objectForKey:@"includeObjectId"] boolValue];
 
     if (withouts == nil)
         withouts = [NSMutableArray array];
@@ -203,6 +245,10 @@
             }
         }
     }
+	//Do we need the local objectID?
+	if (includeObjectId) {
+		[dict setObject:[self objectID] forKey:@"objectId"];
+	}
     return dict;
 }
 
@@ -234,11 +280,11 @@
 }
 
 + (NSDictionary*) relationshipsByName {
-    NSDictionary* rels = [[[CoreManager main] modelRelationships] objectForKey:self];
+    NSDictionary* rels = [[[CoreManager sharedCoreManager] modelRelationships] objectForKey:self];
     if (rels == nil) {
         // Cache relationships dictionary if not yet extant
         rels = [[self entityDescription] relationshipsByName];
-        [[[CoreManager main] modelRelationships] setObject:rels forKey:self];
+        [[[CoreManager sharedCoreManager] modelRelationships] setObject:rels forKey:self];
     }
     return rels;
 }
@@ -248,21 +294,21 @@
 }
 
 + (NSDictionary*) attributesByName {
-    NSDictionary* attr = [[[CoreManager main] modelAttributes] objectForKey:self];
+    NSDictionary* attr = [[[CoreManager sharedCoreManager] modelAttributes] objectForKey:self];
     if (attr == nil) {
         // Cache properties dictionary if not yet extant
         attr = [[self entityDescription] attributesByName];
-        [[[CoreManager main] modelAttributes] setObject:attr forKey:self];
+        [[[CoreManager sharedCoreManager] modelAttributes] setObject:attr forKey:self];
     }
     return attr;
 }
 
 + (NSDictionary*) propertiesByName {
-    NSDictionary* props = [[[CoreManager main] modelProperties] objectForKey:self];
+    NSDictionary* props = [[[CoreManager sharedCoreManager] modelProperties] objectForKey:self];
     if (props == nil) {
         // Cache properties dictionary if not yet extant
         props = [[self entityDescription] propertiesByName];
-        [[[CoreManager main] modelProperties] setObject:props forKey:self];
+        [[[CoreManager sharedCoreManager] modelProperties] setObject:props forKey:self];
     }
     return props;
 }
@@ -322,9 +368,9 @@
         
         // Log creation
         if ([[self class] coreManager].logLevel > 1) {
-            NSLog(@"Created new %@ [#%@] in context %@", self, [resource valueForKey:[self localIdField]], context);
+            DLog(@"Created new %@ [#%@] in context %@", self, [resource valueForKey:[self localIdField]], context);
             if ([[self class] coreManager].logLevel > 4)
-                NSLog(@"=> %@", resource);
+                DLog(@"=> %@", resource);
         }
         
         // Call didCreate for user-specified create hooks
@@ -355,13 +401,12 @@
     else if ([parameters isKindOfClass:[NSDictionary class]]) {
         // Get remote ID
         id resourceId = [parameters objectForKey:[self remoteIdField]];
-        
+        id objectId = [parameters objectForKey:@"objectId"];
         // If there is an ID, attempt to find existing record
         if (resourceId != nil) {
             CoreResult* findResult = [self findLocal:resourceId inContext:[options objectForKey:@"context"]];
             
-            if ([self coreManager].logLevel > 2)
-                NSLog(@"Find %@ [#%@] in context %@ (found %i)", self, resourceId, [options objectForKey:@"context"], [findResult resourceCount]);
+            DLog(@"Find %@ [#%@] in context %@ (found %i)", self, resourceId, [options objectForKey:@"context"], [findResult resourceCount]);
 
             // If there is a result, update it (if necessary) instead of creating it
             if ([findResult resourceCount] == 1) {
@@ -373,14 +418,17 @@
                     [existingResource update:parameters withOptions:options];
                 }
                 else {
-                    if ([[self class] coreManager].logLevel > 1)
-                        NSLog(@"Skipping update of %@ with id %@ because it is already up-to-date", 
+					DLog(@"Skipping update of %@ with id %@ because it is already up-to-date", 
                             [existingResource class], [existingResource valueForKey:[[existingResource class] localIdField]]);
                 }
 
                 return existingResource;
             }
-        }
+			//TODO: check to see if we have an objectID as we would
+			
+        } else if (objectId) {
+			DLog(@"Object Id = %@", objectId);
+		}
         
         // Otherwise, no existing record found, so create a new object
         return [self create:parameters withOptions:options];
@@ -500,8 +548,7 @@
             // If it's an attribute, just assign the value to the object (unless the object is up-to-date)
             else if ([propertyDescription isKindOfClass:[NSAttributeDescription class]]) {                
                 
-                if ([[self class] coreManager].logLevel > 4)
-                    NSLog(@"[%@] Setting remote field: %@, local field: %@, value: %@", [self class], field, localField, value);
+                DLog(@"[%@] Setting remote field: %@, local field: %@, value: %@", [self class], field, localField, value);
                 
                 // Check if value is NSNull, which should be set as nil on fields (since NSNull is just used as a collection placeholder)
                 if ([value isEqual:[NSNull null]])
@@ -639,9 +686,10 @@
     request.coreDelegate = del;
     request.coreSelector = selector;
     [self configureRequest:request forAction:@"findAll"];
-
+	DLog(@"Request Url: %@", [request.url description]);
     // If we're using bundle requests, just attempt to find the data within the project
     if ([self useBundleRequests]) {
+		DLog(@"Using bundle Request");
         request.bundleDataPath = [self bundlePathForCollectionAction:Read];
         [request executeAsBundleRequest];
     }
@@ -658,8 +706,8 @@
     deserializer.action = request.coreSelector;
     [[[self coreManager] deserialzationQueue] addOperation:deserializer];
     [deserializer release];
-    //NSLog(@"===> done with findRemoteDidFinish (queue: %@, operations: %@)", 
-    //    [[self coreManager] deserialzationQueue], [[[self coreManager] deserialzationQueue] operations] );
+    DLog(@"===> Class version: done with findRemoteDidFinish (queue: %@, operations: %@)", 
+        [[self coreManager] deserialzationQueue], [[[self coreManager] deserialzationQueue] operations] );
 }
 
 + (void) findRemoteDidFail:(CoreRequest*)request {
@@ -691,15 +739,80 @@
     // Perform count
     return [context countForFetchRequest:fetch error:&error];
 }
+#pragma mark --
+#pragma mark Remote 
 
+// Push should generally be called from a willSave method on a coreRequest object from save in the coreManager.
+-(void)pushForAction:(Action)action{
+	[self pushForAction:action AndNotify:nil withSelector:nil];
+}
 
+-(void)pushForAction:(Action)action AndNotify:(id)del withSelector:(SEL)selector  {
+	CoreRequest *requestForPush = [self requestForPushForAction:action];
+	requestForPush.delegate = self;
+    requestForPush.didFinishSelector = self.remoteDidFinishSelector;
+    requestForPush.didFailSelector = self.remoteDidFailSelector;
+    requestForPush.coreDelegate = del;
+    requestForPush.coreSelector = selector;
+	[[[self class]coreManager] enqueueRequest:requestForPush];
+}
+-(CoreRequest *) requestForPushForAction:(Action)action {
+	// no remote updates are possible if we're uding bundles.
+	if ([[self class] useBundleRequests])
+		return nil;
+
+	CoreRequest *aRequest = [CoreRequest requestWithURL:[CoreUtils URLWithSite:[self remoteURLForAction:action] andFormat:@"json" andParameters:nil]];
+	[aRequest setRequestMethod:[self HTTPMethodForAction:action]];
+	if (action != Destroy) {
+		NSDictionary *properties = [self properties:$D([NSNumber numberWithBool:YES], @"$serializeDates", [NSNumber numberWithBool:NO], @"$relationships", [NSNumber numberWithBool:(action == Create)], @"includeObjectId")];
+		
+		NSDictionary *post = [[self class] usesRootNode] ? $D(properties, [[self class] rootNodeName]) : properties;
+
+		
+		[aRequest appendPostData:[[self toJson:post] dataUsingEncoding:NSUTF8StringEncoding]];
+	}
+	 return aRequest;	
+}
+- (void) remoteDidFail:(CoreResult *) result{
+	
+	[[self class] remoteDidFail:result];
+}
+
+- (void) remoteDidFinish:(CoreRequest *) request{
+	// Create and enqueue deserializer in non-blocking thread
+    CoreDeserializer* deserializer = [[CoreJSONDeserializer alloc] initWithSource:request andResourceClass:[self class]];
+    deserializer.target = request.coreDelegate;
+    deserializer.action = request.coreSelector;
+    [[[[self class]coreManager] deserialzationQueue] addOperation:deserializer];
+    [deserializer release];
+    DLog(@"===> done with findRemoteDidFinish (queue: %@, operations: %@)", 
+		 [[[self class]coreManager] deserialzationQueue], [[[[self class]coreManager] deserialzationQueue] operations] );
+}
++ (void) remoteDidFinish:(CoreResult *) result{
+	
+	if([result hasAnyResources]){
+		
+		for(id object in result)
+			[self create:object];
+		
+		[[self coreManager]save];
+	}
+}
+
++ (void) remoteDidFail:(CoreResult *) result{
+	
+	NSLog(@"Connection Failed: %@", [result error]);
+}
 
 #pragma mark -
 #pragma mark Delete
 
 + (void) destroyAllLocal {
-    for (CoreResource* model in [[[self class] findAllLocal] resources])
+	// debug - make one line:
+	NSArray *resources = [[[self class] findAllLocal] resources];
+    for (CoreResource* model in resources )
         [[self managedObjectContext] deleteObject:model];
+	[[self coreManager]save];
 }
 
 - (void) destroyLocal {

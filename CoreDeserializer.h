@@ -23,7 +23,6 @@
     NSString *sourceString;
     Class resourceClass;
     NSString *format;
-    CoreManager *coreManager;
     NSManagedObjectContext *managedObjectContext;
     
     // Results
@@ -34,12 +33,12 @@
     id target;
     SEL action;
 }
-
+// remove the reference to coreManager. No reason to keep a reference to a singleton
 @property (nonatomic, retain) id source;
 @property (nonatomic, readonly) NSString* sourceString;
 @property (nonatomic, assign) Class resourceClass;
 @property (nonatomic, retain) NSString* format;
-@property (nonatomic, retain) CoreManager *coreManager;
+@property (nonatomic, retain) NSManagedObjectContext *managedObjectContext;
 
 @property (nonatomic, retain) id target;
 @property (nonatomic, assign) SEL action;

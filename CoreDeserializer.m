@@ -16,7 +16,7 @@
 
 static NSArray* allowedFormats;
 
-@synthesize source, sourceString, resourceClass, format, coreManager;
+@synthesize source, sourceString, resourceClass, format, managedObjectContext;
 @synthesize target, action;
 
 - (id) initWithSource:(id)sourceObj andResourceClass:(Class)clazz {
@@ -33,12 +33,8 @@ static NSArray* allowedFormats;
     Class newClass = [resourceClass performSelector:@selector(deserializerClassForFormat:) withObject:[self format]];
     if (newClass != nil) {
         
-        // Get Core Manager from resource class if it hasn't been defined yet
-        if (coreManager == nil)
-            coreManager = [[resourceClass performSelector:@selector(coreManager)] retain];
-
-        // Create "scratchpad" object context; we will merge this context into the main context once deserialization is complete
-        managedObjectContext = [[coreManager newContext] retain];
+       // Create "scratchpad" object context; we will merge this context into the main context once deserialization is complete
+        managedObjectContext = [[[CoreManager sharedCoreManager] newContext] retain];
         [[NSNotificationCenter defaultCenter] addObserver:self 
             selector:@selector(contextDidSave:) 
             name:NSManagedObjectContextDidSaveNotification 
@@ -59,8 +55,7 @@ static NSArray* allowedFormats;
     }
 
     // Log error if level is high enough
-    if (error != nil && coreManager.logLevel > 3)
-        NSLog(@"CoreDeserializer error: %@", [error description]);
+	DLog(@"CoreDeserializer error: %@", [error description]);
 }
 
 
@@ -68,7 +63,7 @@ static NSArray* allowedFormats;
     When the context saves, send a message to our Core Manager to merge in the updated data
 */
 - (void) contextDidSave:(NSNotification*)notification {
-    [coreManager performSelectorOnMainThread:@selector(mergeContext:) 
+    [[CoreManager sharedCoreManager]performSelectorOnMainThread:@selector(mergeContext:) 
         withObject:notification 
         waitUntilDone:NO];
 }
@@ -79,7 +74,7 @@ static NSArray* allowedFormats;
         CoreResult *result = error == nil ?
             [[CoreResult alloc] initWithSource:source andResources:resources] :
             [[CoreResult alloc] initWithError:error];
-        [result faultResourcesWithContext:[resourceClass performSelector:@selector(managedObjectContext)]];
+       // [result faultResourcesWithContext:[resourceClass performSelector:@selector(managedObjectContext)]];
                           
         // Perform on main thread, since UI updates are very likely in delegate calls
         [target performSelector:action withObject:result];
@@ -175,7 +170,6 @@ static NSArray* allowedFormats;
     [sourceString release];
     [source release];
     [format release];
-    [coreManager release];
     [managedObjectContext release];
     //[error release];
     [resources release];

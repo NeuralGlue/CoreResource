@@ -23,10 +23,10 @@
 
     if (parseError == nil) {
         if (didFinishSelector && ![self isCancelled] && [delegate respondsToSelector:didFinishSelector]) {
-            if ([CoreManager main].bundleRequestDelay == 0)
+            if ([CoreManager sharedCoreManager].bundleRequestDelay == 0)
                 [delegate performSelector:didFinishSelector withObject:self];
             else {
-                [((NSObject *)delegate) performSelector:didFinishSelector withObject:self afterDelay:[CoreManager main].bundleRequestDelay];
+                [((NSObject *)delegate) performSelector:didFinishSelector withObject:self afterDelay:[CoreManager sharedCoreManager].bundleRequestDelay];
             }
         }
     }

@@ -14,17 +14,14 @@
 @interface CoreResult : NSObject <NSFastEnumeration> {
     id source;
     NSArray *resources;
-    NSArray *resourceIds;
+//    NSArray *resourceIds;
     NSError *error;
-    
-    NSManagedObjectContext *faultContext;
 }
 
 @property (nonatomic, retain, readonly) id source;
 @property (nonatomic, retain, readonly) NSArray* resources;
 @property (nonatomic, retain, readonly) NSError* error;
 
-@property (nonatomic, retain, readonly) NSManagedObjectContext *faultContext;
 
 - (id) initWithResources:(id)resources;
 - (id) initWithSource:(id)source andResources:(id)resources;
@@ -39,7 +36,6 @@
 - (BOOL) hasAnyResources;
 - (int) resourceCount;
 
-- (void) faultResourcesWithContext:(NSManagedObjectContext*)context;
 
 
 @end

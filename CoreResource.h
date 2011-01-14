@@ -10,6 +10,9 @@
 #import "CoreResultsController.h"
 #import "CoreResult.h"
 
+
+
+
 typedef enum _Action {
     Create = 0,
     Read = 1,
@@ -18,8 +21,11 @@ typedef enum _Action {
 } Action;
 
 @interface CoreResource : NSManagedObject {
-    ASIHTTPRequest* request;
+    //ASIHTTPRequest* request; //decouple the request from the resource.
+	
 }
+@property (nonatomic, assign) SEL remoteDidFinishSelector;
+@property (nonatomic, assign) SEL remoteDidFailSelector;
 
 #pragma mark -
 #pragma mark Configuration
@@ -42,9 +48,12 @@ typedef enum _Action {
 + (void) configureRequest:(CoreRequest*)request forAction:(NSString*)action;
 
 
+
 #pragma mark -
 #pragma mark Serialization
 
++ (BOOL)usesRootNode;
++ (NSString *) rootNodeName; 
 + (NSString*) localNameForRemoteField:(NSString*)name;
 + (NSString*) remoteNameForLocalField:(NSString*)name;
 + (NSString*) localIdField;
@@ -125,7 +134,11 @@ typedef enum _Action {
 + (void) findRemoteDidFinish:(ASIHTTPRequest*)request;
 + (void) findRemoteDidFail:(ASIHTTPRequest*)request;
 
-
+#pragma mark -
+#pragma mark Remote Update
+-(void)pushForAction:(Action)action;
+-(void)pushForAction:(Action)action AndNotify:(id)del withSelector:(SEL)selector;
+-(CoreRequest *)requestForPushForAction:(Action)action;
 
 #pragma mark -
 #pragma mark Delete

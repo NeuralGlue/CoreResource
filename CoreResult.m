@@ -17,7 +17,6 @@
 @synthesize source;
 @synthesize resources;
 @synthesize error;
-@synthesize faultContext;
 
 - (id) initWithResources:(id)theResources {
     return [self initWithSource:nil andResources:theResources];
@@ -28,7 +27,7 @@
         source = [theSource retain];
         resources = [ToArray(theResources) retain];
     }
-    //NSLog(@"CoreResult: source: %@, theResources: %i, self.resources: %i", source, [theResources count], [self.resources count]);
+    //DLog(@"CoreResult: source: %@, theResources: %i, self.resources: %i", source, [theResources count], [self.resources count]);
     return self;
 }
 
@@ -41,22 +40,12 @@
     return self;
 }
 
-- (void) faultResourcesWithContext:(NSManagedObjectContext*)context {
-    faultContext = [context retain];
-    
-    // Set resourceIds array and release resources; when the resources are next requested, they 
-    // will be re-fetched from the fault context
-    resourceIds = [[ToArray(resources) arrayMappedBySelector:@selector(objectID)] retain];
-    [resources release];
-    resources = nil;
-}
-
 - (CoreResource*) resource {
     return [self resources] != nil && [self resourceCount] > 0 ? [[self resources] objectAtIndex:0] : nil;
 }
-
+/*
 - (NSArray*) resources {
-    if (resources == nil && resourceIds != nil && faultContext != nil) {
+    if (resources == nil && resourceIds != nil) {
         resources = [[NSMutableArray arrayWithCapacity:[resourceIds count]] retain];
         for (NSManagedObjectID *objId in resourceIds)
             [(NSMutableArray*)resources addObject:[faultContext objectWithID:objId]];
@@ -64,6 +53,7 @@
         
     return resources;
 }
+ */
 
 - (BOOL) hasAnyResources {
     return [self resourceCount] > 0;
@@ -90,7 +80,7 @@
 - (void) dealloc {
     [source release];
     [resources release];
-    [resourceIds release];
+    //[resourceIds release];
     [error release];
     [super dealloc];
 }
