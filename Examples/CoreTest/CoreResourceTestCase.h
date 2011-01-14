@@ -6,14 +6,12 @@
 //  Copyright 2010 Mike Laurence. All rights reserved.
 //
 
-#import "GHUnit.h"
 #import "Artist.h"
 #import "Song.h"
 #import "CoreUtils.h"
 #import "CoreResult.h"
 
 @interface CoreResourceTestCase : GHAsyncTestCase {
-    CoreManager *coreManager;
     NSMutableDictionary* delegatesCalled;
 }
 

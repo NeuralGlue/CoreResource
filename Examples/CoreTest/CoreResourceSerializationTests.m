@@ -62,13 +62,15 @@
 #pragma mark Managed Object Contexts
 
 - (void) testDeserializationContextWorkflow {
-
+	[Artist destroyAllLocal];
+	// prepare the test extension
+	[self prepare:@selector(contextDidSave:)];
     [self loadArtist:0 andSave:NO]; // Create in default context
     GHAssertEquals((NSInteger) [Artist countLocal], 1, nil); // Default context should have Artist A
 
     // Create test context
-    [coreManager save];
-    testContext = [[coreManager newContext] retain];
+    [[CoreManager sharedCoreManager] save];
+    testContext = [[[CoreManager sharedCoreManager] newContext] retain];
     GHAssertEquals((NSInteger) [Artist countLocal:nil inContext:testContext], 1, nil); // Test context should be the same as the default
     
     [self loadArtist:1 andSave:NO]; // Create in default context
@@ -88,16 +90,18 @@
     // Save test context
     NSError *error = nil;
     [testContext save:&error];
+	[self waitForStatus:kGHUnitWaitStatusSuccess timeout:10];
 }
 
 - (void) contextDidSave:(NSNotification*)notification {
     // Merge test context into old
-    [coreManager mergeContext:notification];
+    [[CoreManager sharedCoreManager] mergeContext:notification];
 
     GHAssertEquals((NSInteger) [Artist countLocal], 3, nil); // Default context should now have all three: A, B, & C
     GHAssertEquals((NSInteger) [Artist countLocal:nil inContext:testContext], 2, nil); // Test context should still only have A & C
     
     [testContext release];
+	[self notify:kGHUnitWaitStatusSuccess forSelector:@selector(contextDidSave:)];
 }
 
 

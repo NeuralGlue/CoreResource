@@ -21,14 +21,17 @@
 
 
 - (void) testFindWithoutLocalHit {
+	[self prepare:@selector(completeTestFindWithoutLocalHit)];
     GHAssertFalse([[Artist find:[NSNumber numberWithInt:0]] hasAnyResources], @"Find should not immediately return an object if the object doesn't yet exist");
-    [self performSelector:@selector(completeTestFindWithoutLocalHit) withObject:nil afterDelay:0.1];
+    [self performSelector:@selector(completeTestFindWithoutLocalHit) withObject:nil afterDelay:5];
+	[self waitForStatus:kGHUnitWaitStatusSuccess timeout:10];
 }
 
 - (void) completeTestFindWithoutLocalHit {
     // Verify existance of artist after find call
     GHAssertEquals((NSInteger) [[self allLocalArtists] count], 1, nil);
     [self validateFirstArtist:[[self allLocalArtists] objectAtIndex:0]];
+	[self notify:kGHUnitWaitStatusSuccess forSelector:@selector(completeTestFindWithoutLocalHit)];
 }
 
 - (void) testFindWithLocalHit {
@@ -36,12 +39,13 @@
     CoreResult* result = [Artist find:[NSNumber numberWithInt:0]];
     GHAssertEquals((NSInteger) [result resourceCount], 1, nil);
     GHAssertEquals((NSInteger) [[self allLocalArtists] count], 1, nil);
+	[Artist destroyAllLocal];
 }
 
 - (void) testFindAndNotify {
     [self prepare:@selector(completeTestFindAndNotify:)];
     [Artist find:[NSNumber numberWithInt:0] andNotify:self withSelector:@selector(completeTestFindAndNotify:)];
-    [self waitForStatus:kGHUnitWaitStatusSuccess timeout:1.0];
+    [self waitForStatus:kGHUnitWaitStatusSuccess timeout:10.0];
 }
 
 - (void) completeTestFindAndNotify:(CoreResult*)result {
@@ -51,8 +55,10 @@
 }
 
 - (void) testFindAllWithoutLocalHits { 
-    GHAssertFalse([[Artist findAll] hasAnyResources], @"Find all should not immediately any objects if the objects don't yet exist");
-    [self performSelector:@selector(completeTestFindAllWithoutLocalHits) withObject:nil afterDelay:0.1];
+	[self prepare:@selector(completeTestFindAllWithoutLocalHits)];
+	GHAssertFalse([[Artist findAll] hasAnyResources], @"Find all should not immediately any objects if the objects don't yet exist");
+    [self performSelector:@selector(completeTestFindAllWithoutLocalHits) withObject:nil afterDelay:5];
+	[self waitForStatus:kGHUnitWaitStatusSuccess timeout:10];
 }
 
 - (void) completeTestFindAllWithoutLocalHits {    
@@ -60,20 +66,27 @@
     GHAssertEquals((NSInteger) [[self allLocalArtists] count], 3, nil);
     [self validateFirstArtist:[[self allLocalArtists] objectAtIndex:0]];
     [self validateSecondArtist:[[self allLocalArtists] objectAtIndex:1]];
+	[self notify:kGHUnitWaitStatusSuccess forSelector:@selector(completeTestFindAllWithoutLocalHits)];
+
 }
 
 - (void) testFindAllWithSomeLocalHits { 
+	[self prepare:@selector(completeTestFindAllWithSomeLocalHits)];
     // Pre-fetch two artists so that they're cached locally
     [self loadArtist:0];
     [self loadArtist:2];
     
-    CoreResult* result = [Artist findAll];
+    CoreResult* result = [Artist findAllLocal];
     GHAssertEquals((NSInteger) [result resourceCount], 2, nil);
-    [self performSelector:@selector(completeTestFindAllWithSomeLocalHits) withObject:nil afterDelay:0.1];
+	// trigger the remote fetch
+	[Artist findAll];
+    [self performSelector:@selector(completeTestFindAllWithSomeLocalHits) withObject:nil afterDelay:10];
+	[self waitForStatus:kGHUnitWaitStatusSuccess timeout:20];
 }
 
 - (void) completeTestFindAllWithSomeLocalHits {
-    GHAssertEquals((NSInteger) [[self allLocalArtists] count], 3, nil);
+    GHAssertEquals((NSInteger) [[Artist findAllLocal] resourceCount], 3, nil);
+	[self notify:kGHUnitWaitStatusSuccess forSelector:@selector(completeTestFindAllWithSomeLocalHits)];
 }
  
 - (void) testFindAllWithAllLocalHits { 
@@ -95,7 +108,7 @@
 - (void) testFindAllAndNotify {
     [self prepare:@selector(completeTestFindAllAndNotify:)];
     [Artist findAll:nil andNotify:self withSelector:@selector(completeTestFindAllAndNotify:)];
-    [self waitForStatus:kGHUnitWaitStatusSuccess timeout:1.0];
+    [self waitForStatus:kGHUnitWaitStatusSuccess timeout:10];
 }
 
 - (void) completeTestFindAllAndNotify:(CoreResult*)result {
@@ -126,19 +139,22 @@
 
 
 - (void) testFindRemote {
+	[self prepare:@selector(completeTestFindRemote)];
     [Artist findRemote:[NSNumber numberWithInt:1]];
-    [self performSelector:@selector(completeTestFindRemote) withObject:nil afterDelay:0.1];
+    [self performSelector:@selector(completeTestFindRemote) withObject:nil afterDelay:5];
+	[self waitForStatus:kGHUnitWaitStatusSuccess timeout:10];
 }
 
 - (void) completeTestFindRemote {
     GHAssertEquals((NSInteger) [[self allLocalArtists] count], 1, nil);
     [self validateSecondArtist:(Artist*)[[self allLocalArtists] lastObject]];
+	[self notify:kGHUnitWaitStatusSuccess forSelector:@selector(completeTestFindRemote)];
 }
 
 - (void) testFindRemoteAndNotify { 
     [self prepare:@selector(completeTestFindRemoteAndNotify:)];
     [Artist findRemote:[NSNumber numberWithInt:0] andNotify:self withSelector:@selector(completeTestFindRemoteAndNotify:)];
-    [self waitForStatus:kGHUnitWaitStatusSuccess timeout:1.0];
+    [self waitForStatus:kGHUnitWaitStatusSuccess timeout:10];
 }
 
 - (void) completeTestFindRemoteAndNotify:(CoreResult*)result {
@@ -148,24 +164,29 @@
 }
 
 - (void) testFindAllRemote {
+	[self prepare:@selector(completeTestFindAllRemote)];
+	GHAssertEquals((NSInteger) [[self allLocalArtists] count], 0, nil);
     [Artist findAllRemote];
-    [self performSelector:@selector(completeTestFindAllRemote) withObject:nil afterDelay:0.1];
+    [self performSelector:@selector(completeTestFindAllRemote) withObject:nil afterDelay:5];
+	[self waitForStatus:kGHUnitWaitStatusSuccess timeout:10.0];
 }
 
 - (void) completeTestFindAllRemote {
     GHAssertEquals((NSInteger) [[self allLocalArtists] count], 3, nil);
     [self validateFirstArtist:[[self allLocalArtists] objectAtIndex:0]];
     [self validateSecondArtist:[[self allLocalArtists] objectAtIndex:1]];
+	[self notify:kGHUnitWaitStatusSuccess forSelector:@selector(completeTestFindAllRemote)];
 }
 
 - (void) testFindAllRemoteAndNotify {
     [self prepare:@selector(completeTestFindAllRemoteAndNotify:)];
     [Artist findAllRemote:nil andNotify:self withSelector:@selector(completeTestFindAllRemoteAndNotify:)];
-    [self waitForStatus:kGHUnitWaitStatusSuccess timeout:1.0];
+    [self waitForStatus:kGHUnitWaitStatusSuccess timeout:10.0];
 }
 
 - (void) completeTestFindAllRemoteAndNotify:(CoreResult*)result {
     GHAssertEquals((NSInteger) [result resourceCount], 3, nil);
+	// do we need to refault the data?
     [self validateFirstArtist:(Artist*)[result resource]];
     [self validateSecondArtist:[[self allLocalArtists] objectAtIndex:1]];
     [self notify:kGHUnitWaitStatusSuccess forSelector:@selector(completeTestFindAllRemoteAndNotify:)];

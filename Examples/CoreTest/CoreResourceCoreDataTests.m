@@ -25,7 +25,7 @@
 }
 
 - (void) testEntityDescription { 
-    NSEntityDescription* artistDescription = [NSEntityDescription entityForName:@"Artist" inManagedObjectContext:[coreManager managedObjectContext]];
+    NSEntityDescription* artistDescription = [NSEntityDescription entityForName:@"Artist" inManagedObjectContext:[[CoreManager sharedCoreManager] managedObjectContext]];
     GHAssertEquals([Artist entityDescription], artistDescription, nil);
 }
 

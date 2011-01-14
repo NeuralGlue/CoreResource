@@ -35,11 +35,11 @@ static int dbInc = 1;
 }
 
 - (Artist*) loadArtist:(int)index {
-    return [self loadArtist:index inContext:[coreManager managedObjectContext]];
+    return [self loadArtist:index inContext:[[CoreManager sharedCoreManager]managedObjectContext]];
 }
 
 - (Artist*) loadArtist:(int)index andSave:(BOOL)shouldSave {
-    return [self loadArtist:index andSave:shouldSave inContext:[coreManager managedObjectContext]];
+    return [self loadArtist:index andSave:shouldSave inContext:[[CoreManager sharedCoreManager] managedObjectContext]];
 }
 
 - (Artist*) loadArtist:(int)index inContext:(NSManagedObjectContext*)context {
@@ -53,7 +53,7 @@ static int dbInc = 1;
     artist.name = [dict objectForKey:@"name"];
     artist.summary = [dict objectForKey:@"summary"];
     artist.detail = [dict objectForKey:@"detail"];
-    artist.updatedAt = [[coreManager defaultDateParser] dateFromString:[dict objectForKey:@"updatedAt"]];
+    artist.updatedAt = [[[CoreManager sharedCoreManager] defaultDateParser] dateFromString:[dict objectForKey:@"updatedAt"]];
     
     NSDictionary* songsArray = [dict objectForKey:@"songs"];
     NSMutableSet* songs = [NSMutableSet set];
@@ -84,15 +84,16 @@ static int dbInc = 1;
 }
 
 - (void) validateFirstArtist:(Artist*)artist {
+	DLog(@"Validating Artist: %@", artist.name);
     GHAssertEqualStrings(artist.name, @"Peter Gabriel", nil);
     GHAssertEqualStrings(artist.summary, @"Peter Brian Gabriel is an English musician and songwriter.", nil);
-    GHAssertEquals([artist.resourceId intValue], 0, nil);
+    //GHAssertEquals([artist.resourceId intValue], 0, nil);
 }
 
 - (void) validateSecondArtist:(Artist*)artist {
     GHAssertEqualStrings(artist.name, @"Spoon", nil);
     GHAssertEqualStrings(artist.summary, @"Spoon is an American indie rock band from Austin, Texas.", nil);
-    GHAssertEquals([artist.resourceId intValue], 1, nil);
+   // GHAssertEquals([artist.resourceId intValue], 1, nil); // given a remote ID we don't know what the 
     GHAssertEquals((NSInteger) [artist.songs count], 2, nil);
     GHAssertEqualStrings(((Song*)[[artist sortedSongs] objectAtIndex:0]).name, @"Don't Make Me a Target", nil);
     GHAssertEqualStrings(((Song*)[[artist sortedSongs] objectAtIndex:1]).name, @"You Got Yr. Cherry Bomb", nil);
@@ -104,18 +105,22 @@ static int dbInc = 1;
 #pragma mark GHUnit Configuration
 
 - (void) setUp {
-    NSString *dbName = $S(@"db-%i-%i.sqlite", [NSDate timeIntervalSinceReferenceDate], dbInc++);
-    NSLog(@"\n\nCreating core manager with DB named '%@'\n\n", dbName);
-    coreManager = [[CoreManager alloc] initWithOptions:$D(dbName, @"dbName")];
-    coreManager.logLevel = 2;
-    coreManager.useBundleRequests = YES;
-    coreManager.bundleRequestDelay = 0.01;
-    [CoreManager setMain:coreManager];
+	//DLog(@"GHUnit setup called");
+	// NSString *dbName = $S(@"db-%i-%i.sqlite", [NSDate timeIntervalSinceReferenceDate], dbInc++);
+    //DLog(@"\n\nCreating core manager with DB named '%@'\n\n", dbName);
+    CoreManager *aCoreManager = [CoreManager sharedCoreManager];
+    aCoreManager.logLevel = 2;
+   // aCoreManager.useBundleRequests = YES;
+    aCoreManager.bundleRequestDelay = 0.01;
+	aCoreManager.remoteSiteURL = @"http://localhost:5555/cgi-bin/WebObjects/CoreResourceTest.woa/ra";
+	aCoreManager.debugName = @"CoreResourceTestCase Core Manager";
+	[Artist destroyAllLocal];
+
+    //[CoreManager setMain:aCoreManager];
 }
 
 - (void) tearDown {
-    [coreManager release];
-    coreManager = nil;
+	DLog(@"GHUnit teardown called");
 }
 
 

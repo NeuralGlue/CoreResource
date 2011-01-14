@@ -6,7 +6,6 @@
 //  Copyright Punkbot LLC 2010. All rights reserved.
 //
 
-#import "GHUnitIPhoneAppDelegate.h"
 #import "CoreManager.h"
 
 @interface CoreTestAppDelegate : GHUnitIPhoneAppDelegate {

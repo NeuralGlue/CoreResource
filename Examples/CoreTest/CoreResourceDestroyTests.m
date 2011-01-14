@@ -22,5 +22,8 @@
     [Artist destroyAllLocal];
     GHAssertEquals([[Artist findAllLocal] resourceCount], 0, nil);
 }
+-(void) testDestroyRemote {
+	
+}
 
 @end

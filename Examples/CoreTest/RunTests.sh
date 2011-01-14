@@ -1,1 +1,1 @@
-GHUNIT_CLI=1 xcodebuild -target CoreTest -configuration Debug -sdk iphonesimulator3.1 build
+GHUNIT_CLI=1 xcodebuild -target CoreTest -configuration Debug -sdk iphonesimulator4.2 build
