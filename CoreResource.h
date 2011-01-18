@@ -135,7 +135,8 @@ typedef enum _Action {
 + (void) findRemoteDidFail:(ASIHTTPRequest*)request;
 
 #pragma mark -
-#pragma mark Remote Update
+#pragma mark Remote
+-(BOOL) isInRemoteCollection;
 -(void)pushForAction:(Action)action;
 -(void)pushForAction:(Action)action AndNotify:(id)del withSelector:(SEL)selector;
 -(CoreRequest *)requestForPushForAction:(Action)action;

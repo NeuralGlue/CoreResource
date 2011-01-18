@@ -424,7 +424,7 @@
 
                 return existingResource;
             }
-			//TODO: check to see if we have an objectID as we would
+			//TODO: check to see if we have an objectID. We send an ObjectId if we have created the object locally but have not yet created it remotely
 			
         } else if (objectId) {
 			DLog(@"Object Id = %@", objectId);
@@ -742,7 +742,20 @@
 #pragma mark --
 #pragma mark Remote 
 
-// Push should generally be called from a willSave method on a coreRequest object from save in the coreManager.
+/* A resource should only get a remoteId if it has been in the remote collection.
+ Note that this does not guarantee that it is still in the collection
+ If neeesary we cna implement a check, but we don't care at the moment.
+*/
+//TODO: remember to add a code path for a remote resource no lnger exists for a gien resourceId (ie decide if we should delete local or just reset the remoteId
+-(BOOL) isInRemoteCollection {
+	return ([self localId] != nil);
+}
+
+/* 
+ Push should be called at the application's discretion. It doesn't make sense to be calling ppush on every coreData save as it means that we'll
+ need to be checking if we ude primitive update methods and whatever. Much easier to seprate the concerns so that we just synchronize changes 
+ when we feel we need to.
+*/
 -(void)pushForAction:(Action)action{
 	[self pushForAction:action AndNotify:nil withSelector:nil];
 }
@@ -773,11 +786,17 @@
 	}
 	 return aRequest;	
 }
+
+/*
+	Pushing an instance failed.
+*/
 - (void) remoteDidFail:(CoreResult *) result{
 	
 	[[self class] remoteDidFail:result];
 }
-
+/*
+ Pushing an instance succeeded.
+*/
 - (void) remoteDidFinish:(CoreRequest *) request{
 	// Create and enqueue deserializer in non-blocking thread
     CoreDeserializer* deserializer = [[CoreJSONDeserializer alloc] initWithSource:request andResourceClass:[self class]];

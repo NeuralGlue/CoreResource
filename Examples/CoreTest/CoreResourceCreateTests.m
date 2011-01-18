@@ -24,21 +24,24 @@
     [self validateSecondArtist:artistTwo];
 	[Artist destroyAllLocal];
 }
--(void) testCreateRemote {
-	[self prepare:@selector(completeTestCreateRemote)];
-	Artist* artistOne = [Artist create:[self artistData:0]];
+-(void) testCreateRemoteWithoutLocal {
+	[self prepare:@selector(testCreateRemoteWithoutLocal)];
+	Artist* artistOne = [Artist create:[self artistData:1]];
 	[artistOne pushForAction:Create AndNotify:self withSelector:@selector(midpointTestCreateRemote:)];
 	[self waitForStatus:kGHUnitWaitStatusSuccess timeout:10.0];
 }
 -(void) midpointTestCreateRemote:(CoreRequest *)request {
-	[[[[Artist class] coreManager] managedObjectContext] rollback]; // shouldn't call the remote destroy as they're not inserted into the MOC
+	[[[[Artist class] coreManager] managedObjectContext] rollback]; // sneakily we didn't save
 	[Artist findAllRemote];
 	[self performSelector:@selector(completeTestCreateRemote) withObject:nil afterDelay:5];
 }
 -(void) completeTestCreateRemote {
 	NSFetchRequest *fetch = [Artist fetchRequestWithSort:nil andPredicate:[NSPredicate predicateWithFormat:@"name like \"Peter Gabriel\""]];
 	NSArray *artists = [[[[Artist class]coreManager] managedObjectContext] executeFetchRequest:fetch error:nil];
-	[self validateFirstArtist:[artists objectAtIndex:0]];
+	Artist *peterGabriel = [artists objectAtIndex:0];
+	[self validateFirstArtist:peterGabriel];
+	GHAssertTrue([peterGabriel isInRemoteCollection], @"The resource should have a remote Id");
+	[self notify:kGHUnitWaitStatusSuccess forSelector:@selector(testCreateRemoteWithoutLocal)];
 }
 /*
 - (void) testCreateOrUpdateWithDictionary { GHFail(nil); }
