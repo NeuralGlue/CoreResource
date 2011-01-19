@@ -149,17 +149,17 @@
 }
 
 /**
-    Retrieves the actual data collection from the initial deserialized collection.
-    This should be used, for example. if your response has its data objects nested, e.g.:
-    
-    { results: [{ name: 'Mike' }, { name: 'Mork' }] }
-    
-    It could also just be used to fine-tune the deserialized data before it's converted to model objects.
-    
-    Defaults to just returning the initial collection, which would work if you have no nested-ness, e.g.:
-    
-    [{ name: 'Mike' }, { name: 'Mork' }]
-*/
+ Retrieves the actual data collection from the initial deserialized collection.
+ This should be used, for example. if your response has its data objects nested, e.g.:
+ 
+ { results: [{ name: 'Mike' }, { name: 'Mork' }] }
+ 
+ It could also just be used to fine-tune the deserialized data before it's converted to model objects.
+ 
+ Defaults to just returning the initial collection, which would work if you have no nested-ness, e.g.:
+ 
+ [{ name: 'Mike' }, { name: 'Mork' }]
+ */
 + (NSArray*) dataCollectionFromDeserializedCollection:(id)deserializedCollection {
     return deserializedCollection;
 }
@@ -191,8 +191,8 @@
     NSArray* only = [options objectForKey:@"$only"];
     NSArray* except = [options objectForKey:@"$except"];
     BOOL serializeDates = [[options objectForKey:@"$serializeDates"] boolValue];
-	BOOL includeObjectId = [[options objectForKey:@"includeObjectId"] boolValue];
-
+	BOOL includeObjectId = YES; //[[options objectForKey:@"includeObjectId"] boolValue];
+	
     if (withouts == nil)
         withouts = [NSMutableArray array];
     [withouts addObject:self];
@@ -201,12 +201,12 @@
     
     // If indent option is set, "indent" this object's nesting within a named dictionary
     /*
-    if ([options objectForKey:$indent]) {
-        NSMutableDictionary* indentDict = [NSMutableDictionary dictionary];
-        [dict setObject:indentDict forKey:key];
-        dict = indentDict;
-    }
-    */
+	 if ([options objectForKey:$indent]) {
+	 NSMutableDictionary* indentDict = [NSMutableDictionary dictionary];
+	 [dict setObject:indentDict forKey:key];
+	 dict = indentDict;
+	 }
+	 */
     
     for (NSPropertyDescription* prop in [[[self class] entityDescription] properties]) {
         NSString* key = prop.name;
@@ -214,16 +214,16 @@
             id value = [self valueForKey:key];
             if (value == nil)
                 value = [NSNull null];
-
+			
             // For attributes, simply set the value
             if ([prop isKindOfClass:[NSAttributeDescription class]]) {
                 // Serialize dates if serializeDates is set
                 if ([value isKindOfClass:[NSDate class]] && serializeDates)
                     value = [[[self class] dateParserForField:key] stringFromDate:value];
-            
+				
                 [dict setObject:value forKey:key];
             }
-                
+			
             // For relationships, recursively branch off properties:ignoringObjects call
             else {
                 NSRelationshipDescription* rel = (NSRelationshipDescription*)prop;
@@ -247,7 +247,18 @@
     }
 	//Do we need the local objectID?
 	if (includeObjectId) {
-		[dict setObject:[self objectID] forKey:@"objectId"];
+		NSManagedObjectID *objectId = [self objectID];
+		if ([objectId isTemporaryID]) {
+			NSError *error= nil;
+			if (![[self managedObjectContext] obtainPermanentIDsForObjects:[NSArray arrayWithObject:self] error:&error]){
+				ALog(@"A temporary Id is being serialized for posting due to error: %@", [error localizedDescription]);
+				//TODO: figure some way of building an objectId or halting the process.
+			}
+			objectId = [self objectID]; // try again to get a permenant Id.
+		}
+			
+		NSString *objectIdString = [[objectId URIRepresentation] absoluteString];
+		[dict setValue:objectIdString forKey:@"objectId"];
 	}
     return dict;
 }
@@ -314,10 +325,10 @@
 }
 
 /**
-    Returns the property description for a given property in a given model.
-    By default, this caches the resulting dictionaries provided by Core Data
-    in order to maximize efficiency (caching performed in #propertiesByName).
-*/
+ Returns the property description for a given property in a given model.
+ By default, this caches the resulting dictionaries provided by Core Data
+ in order to maximize efficiency (caching performed in #propertiesByName).
+ */
 + (NSPropertyDescription*) propertyDescriptionForField:(NSString*)field inModel:(Class)modelClass {
     return [[modelClass propertiesByName] objectForKey:field];
 }
@@ -340,7 +351,7 @@
         NSMutableArray *resources = [NSMutableArray arrayWithCapacity:[parameters count]];
         for (id item in parameters)
             [resources addObject:[self create:item withOptions:options]];
-            
+		
         return resources;
     }
     else {
@@ -350,11 +361,11 @@
             context = [self managedObjectContext];
         else if ([context isEqual:[NSNull null]])
             context = nil;
-
+		
         // Insert new managed object into context
         CoreResource *resource = [[self alloc] initWithEntity:[self entityDescription] 
-            insertIntoManagedObjectContext:context];
-
+							   insertIntoManagedObjectContext:context];
+		
         // Update new object with properties
         [resource update:parameters withOptions:options];
         
@@ -375,7 +386,7 @@
         
         // Call didCreate for user-specified create hooks
         [resource didCreate];
-
+		
         return [resource autorelease];
     }
 }
@@ -388,62 +399,90 @@
     // If parameters are just a resource of this class, return it untouched
     if ([parameters isKindOfClass:self])
         return parameters;
-
+	
     else if ([parameters isKindOfClass:[NSArray class]]) {
         // Iterate through items and attempt to create or update resources for each
         NSMutableArray *resources = [NSMutableArray arrayWithCapacity:[parameters count]];
         for (id item in parameters)
             [resources addObject:[self createOrUpdate:item withOptions:options]];
-
+		
         return resources;
     }
     
     else if ([parameters isKindOfClass:[NSDictionary class]]) {
         // Get remote ID
-        id resourceId = [parameters objectForKey:[self remoteIdField]];
-        id objectId = [parameters objectForKey:@"objectId"];
+        id resourceId = [parameters valueForKey:[self remoteIdField]];
+        id objectId = [parameters valueForKey:@"objectId"];
         // If there is an ID, attempt to find existing record
         if (resourceId != nil) {
             CoreResult* findResult = [self findLocal:resourceId inContext:[options objectForKey:@"context"]];
             
             DLog(@"Find %@ [#%@] in context %@ (found %i)", self, resourceId, [options objectForKey:@"context"], [findResult resourceCount]);
-
-            // If there is a result, update it (if necessary) instead of creating it
-            if ([findResult resourceCount] == 1) {
-                CoreResource *existingResource = [findResult resource];
-                
-                // Determine whether this object needs to be updated (relationships will still be checked no matter what)
-                BOOL shouldUpdate = [existingResource shouldUpdateWith:parameters];
-                if (shouldUpdate) {
-                    [existingResource update:parameters withOptions:options];
-                }
-                else {
-					DLog(@"Skipping update of %@ with id %@ because it is already up-to-date", 
-                            [existingResource class], [existingResource valueForKey:[[existingResource class] localIdField]]);
-                }
-
-                return existingResource;
-            }
-			//TODO: check to see if we have an objectID. We send an ObjectId if we have created the object locally but have not yet created it remotely
 			
-        } else if (objectId) {
-			DLog(@"Object Id = %@", objectId);
+            // If there is a result, update it (if necessary) instead of creating it
+			CoreResource *existingResource = nil;
+			NSError *error = nil;
+			
+            if ([findResult resourceCount] == 1) {
+                existingResource = [findResult resource];
+			} else {
+				// We don't have any resources. Last chance: check to see if the resource does exist but it is in the create process
+				if (objectId != nil && objectId != @"") {
+					DLog(@"Object Id = %@", objectId);
+					// Try to create a proper URL out of the objectId:
+					
+					NSManagedObjectID *oid = [[[CoreManager sharedCoreManager]persistentStoreCoordinator] managedObjectIDForURIRepresentation:[NSURL URLWithString:objectId]];
+					NSManagedObjectContext *moc = [options objectForKey:@"context"];
+					if (!moc) {
+						ALog(@"Object will not be retrieved from a nil ManagedObjectContext");
+					}
+					
+					existingResource = (CoreResource *)[moc existingObjectWithID:oid error:&error];
+				}
+
+				
+			}
+			
+			if (existingResource) {
+				// Determine whether this object needs to be updated (relationships will still be checked no matter what)
+				BOOL shouldUpdate = [existingResource shouldUpdateWith:parameters];
+				if (shouldUpdate) {
+					[existingResource update:parameters withOptions:options];
+				}
+				else {
+					DLog(@"Skipping update of %@ with id %@ because it is already up-to-date", 
+						 [existingResource class], [existingResource valueForKey:[[existingResource class] localIdField]]);
+				}
+				
+				return existingResource;
+			}else {
+				DLog(@"Error: %@\n%@", [error localizedDescription], [error userInfo]);
+			}
+			
+			
+			
 		}
-        
-        // Otherwise, no existing record found, so create a new object
-        return [self create:parameters withOptions:options];
-    }
-    
-    return nil;
+		
+		
+		// Otherwise, no existing record found, so create a new object
+		return [self create:parameters withOptions:options];
+	}
+	
+	return nil;
 }
 
 
 /**
-    Determines whether or not an existing (local) record should be updated with data from the provided dictionary
-    (presumably retrieved from a remote source.) The most likely determinant would be if the new data is newer
-    than the object, which by default is determined through the field returned by [self updatedAtField]
-*/
+ Determines whether or not an existing (local) record should be updated with data from the provided dictionary
+ (presumably retrieved from a remote source.) The most likely determinant would be if the new data is newer
+ than the object, which by default is determined through the field returned by [self updatedAtField]
+ The other possibility is that this is a newly posted object with the resourceId set for
+ the first time
+ */
 - (BOOL) shouldUpdateWith:(NSDictionary*)dict {
+	if (![self isInRemoteCollection]) {
+		return YES;
+	}
     SEL updatedAtSel = NSSelectorFromString([[self class] updatedAtField]);
     if ([self respondsToSelector:updatedAtSel]) {
         NSDate *updatedAt = (NSDate*)[self performSelector:updatedAtSel];
@@ -465,10 +504,10 @@
 }
 
 - (void) update:(NSDictionary*)dict withOptions:(NSDictionary*)options {
-
+	
     // Loop through and apply fields in dictionary (if they exist on the object)
     for (NSString* field in [dict allKeys]) {
-    
+		
         // Get local field name (by default, this is the same as the remote name)
         // If this is an ID field, use remote/localIdField methods; otherwise, localNameForRemoteField
         NSString* localField = nil;
@@ -484,19 +523,19 @@
             
             // If property is a relationship, do some cascading object creation/updation
             if ([propertyDescription isKindOfClass:[NSRelationshipDescription class]]) {
-
+				
                 // Get relationship class from core data info
                 NSRelationshipDescription *relationshipDescription = (NSRelationshipDescription*)propertyDescription;
                 Class relationshipClass = NSClassFromString([[relationshipDescription destinationEntity] managedObjectClassName]);
                 id newRelatedResources = nil;
                 id existingRelatedResources = [self valueForKey:localField];
-
+				
                 // Get relationship options
                 NSDictionary* relationshipOptions = [options objectForKey:relationshipClass];
                 
-
+				
                 // ===== Get related resources from value ===== //
-                                
+				
                 // If the value is a dictionary or array, use it to create or update an resource                
                 if ([value isKindOfClass:[NSDictionary class]] || [value isKindOfClass:[NSArray class]]) {
                     newRelatedResources = [relationshipClass createOrUpdate:value withOptions:options];
@@ -507,7 +546,7 @@
                 // Otherwise, if the value is a resource itself, use it directly
                 else if ([value isKindOfClass:relationshipClass])
                     newRelatedResources = value;
-
+				
                 // ===== Apply related resources to self ===== //
                 
                 NSString *rule = [relationshipOptions objectForKey:@"rule"];
@@ -518,7 +557,7 @@
                     // If rule is to add, append new objects to existing
                     if ([rule isEqualToString:@"append"])
                         newRelatedResources = [existingRelatedResources setByAddingObjectsFromSet:newRelatedResources];
-
+					
                     // If relationship rule is destroy, destroy all old resources that aren't in the new set
                     else if ([rule isEqualToString:@"destroy"]) {
                         NSSet* danglers = [existingRelatedResources difference:newRelatedResources];
@@ -553,7 +592,7 @@
                 // Check if value is NSNull, which should be set as nil on fields (since NSNull is just used as a collection placeholder)
                 if ([value isEqual:[NSNull null]])
                     [self setValue:nil forKey:localField];
-
+				
                 else {
                     // Perform additional processing on value based on attribute type
                     switch ([(NSAttributeDescription*)propertyDescription attributeType]) {
@@ -570,8 +609,8 @@
 }
 
 /**
-    Override for post-create hooks
-*/
+ Override for post-create hooks
+ */
 - (void) didCreate {}
 
 + (NSDictionary*) defaultCreateOptions { return nil; }
@@ -616,7 +655,7 @@
 
 + (CoreResult*) findLocal:(id)resourceId inContext:(NSManagedObjectContext*)context {
     return [self findAllLocal:$D(resourceId, [self localIdField], $S(@"find%@", NSStringFromClass(self)), @"$template")
-        inContext:context];
+					inContext:context];
 }
 
 + (CoreResult*) findAllLocal {
@@ -630,17 +669,17 @@
 + (CoreResult*) findAllLocal:(id)parameters inContext:(NSManagedObjectContext*)context {
     if (context == nil)
         context = [self managedObjectContext];
-
+	
     // Generate (or get templated) fetch request
     NSFetchRequest* fetch = [self fetchRequest:parameters];
     NSError* error = nil;
     
     // Perform fetch
     NSArray* resources = [context executeFetchRequest:fetch error:&error];
-
+	
     CoreResult* result = error == nil ?
-        [[[CoreResult alloc] initWithResources:resources] autorelease] :
-        [[[CoreResult alloc] initWithError:error] autorelease];
+	[[[CoreResult alloc] initWithResources:resources] autorelease] :
+	[[[CoreResult alloc] initWithError:error] autorelease];
     return result;
 }
 
@@ -650,14 +689,14 @@
 
 + (void) findRemote:(id)resourceId andNotify:(id)del withSelector:(SEL)selector {
     CoreRequest *request = [[[CoreRequest alloc] initWithURL:
-        [CoreUtils URLWithSite:[self remoteURLForResource:resourceId action:Read] andFormat:@"json" andParameters:nil]] autorelease];
+							 [CoreUtils URLWithSite:[self remoteURLForResource:resourceId action:Read] andFormat:@"json" andParameters:nil]] autorelease];
     request.delegate = self;
     request.didFinishSelector = @selector(findRemoteDidFinish:);
     request.didFailSelector = @selector(findRemoteDidFail:);
     request.coreDelegate = del;
     request.coreSelector = selector;
     [self configureRequest:request forAction:@"find"];
-
+	
     // If we're using bundle requests, just attempt to find the data within the project
     if ([self useBundleRequests]) {
         request.bundleDataPath = [self bundlePathForResource:resourceId action:Read];
@@ -679,7 +718,7 @@
 
 + (void) findAllRemote:(id)parameters andNotify:(id)del withSelector:(SEL)selector {
     CoreRequest *request = [[[CoreRequest alloc] initWithURL:
-        [CoreUtils URLWithSite:[self remoteURLForCollectionAction:Read] andFormat:@"json" andParameters:parameters]] autorelease];
+							 [CoreUtils URLWithSite:[self remoteURLForCollectionAction:Read] andFormat:@"json" andParameters:parameters]] autorelease];
     request.delegate = self;
     request.didFinishSelector = @selector(findRemoteDidFinish:);
     request.didFailSelector = @selector(findRemoteDidFail:);
@@ -707,7 +746,7 @@
     [[[self coreManager] deserialzationQueue] addOperation:deserializer];
     [deserializer release];
     DLog(@"===> Class version: done with findRemoteDidFinish (queue: %@, operations: %@)", 
-        [[self coreManager] deserialzationQueue], [[[self coreManager] deserialzationQueue] operations] );
+		 [[self coreManager] deserialzationQueue], [[[self coreManager] deserialzationQueue] operations] );
 }
 
 + (void) findRemoteDidFail:(CoreRequest*)request {
@@ -729,7 +768,7 @@
 + (int) countLocal:(id)parameters inContext:(NSManagedObjectContext*)context {
     if (context == nil)
         context = [self managedObjectContext];
-        
+	
     // Generate (or get templated) fetch request
     NSFetchRequest* fetch = [self fetchRequest:parameters];
     NSError* error = nil;
@@ -745,7 +784,7 @@
 /* A resource should only get a remoteId if it has been in the remote collection.
  Note that this does not guarantee that it is still in the collection
  If neeesary we cna implement a check, but we don't care at the moment.
-*/
+ */
 //TODO: remember to add a code path for a remote resource no lnger exists for a gien resourceId (ie decide if we should delete local or just reset the remoteId
 -(BOOL) isInRemoteCollection {
 	return ([self localId] != nil);
@@ -755,7 +794,18 @@
  Push should be called at the application's discretion. It doesn't make sense to be calling ppush on every coreData save as it means that we'll
  need to be checking if we ude primitive update methods and whatever. Much easier to seprate the concerns so that we just synchronize changes 
  when we feel we need to.
-*/
+ */
+-(void)push {
+	// Push may be a Create or Update. Delete should be handled via remote delete
+	
+	if ([self isInRemoteCollection]) {
+		// we may be doing an update or Delete
+		[self pushForAction:Update];
+	} else {
+		[self pushForAction:Create];
+	}
+}
+
 -(void)pushForAction:(Action)action{
 	[self pushForAction:action AndNotify:nil withSelector:nil];
 }
@@ -770,33 +820,37 @@
 	[[[self class]coreManager] enqueueRequest:requestForPush];
 }
 -(CoreRequest *) requestForPushForAction:(Action)action {
-	// no remote updates are possible if we're uding bundles.
+	// no remote updates are possible if we're using bundles.
 	if ([[self class] useBundleRequests])
 		return nil;
-
+	
 	CoreRequest *aRequest = [CoreRequest requestWithURL:[CoreUtils URLWithSite:[self remoteURLForAction:action] andFormat:@"json" andParameters:nil]];
 	[aRequest setRequestMethod:[self HTTPMethodForAction:action]];
 	if (action != Destroy) {
+		// TODO: We're not actually using the attributes properties or post!
 		NSDictionary *properties = [self properties:$D([NSNumber numberWithBool:YES], @"$serializeDates", [NSNumber numberWithBool:NO], @"$relationships", [NSNumber numberWithBool:(action == Create)], @"includeObjectId")];
 		
 		NSDictionary *post = [[self class] usesRootNode] ? $D(properties, [[self class] rootNodeName]) : properties;
-
 		
-		[aRequest appendPostData:[[self toJson:post] dataUsingEncoding:NSUTF8StringEncoding]];
+		
+		DLog(@"Properties: %@", [self toJson]);
+		
+		
+		[aRequest appendPostData:[[self toJson] dataUsingEncoding:NSUTF8StringEncoding]];
 	}
-	 return aRequest;	
+	return aRequest;	
 }
 
 /*
-	Pushing an instance failed.
-*/
+ Pushing an instance failed.
+ */
 - (void) remoteDidFail:(CoreResult *) result{
 	
 	[[self class] remoteDidFail:result];
 }
 /*
  Pushing an instance succeeded.
-*/
+ */
 - (void) remoteDidFinish:(CoreRequest *) request{
 	// Create and enqueue deserializer in non-blocking thread
     CoreDeserializer* deserializer = [[CoreJSONDeserializer alloc] initWithSource:request andResourceClass:[self class]];
@@ -851,25 +905,25 @@
 
 + (NSFetchRequest*) fetchRequest:(id)parameters {
     NSFetchRequest* fetch = nil;
-
+	
     // If there's a template parameter, use it to get a stored fetch request (increases efficiency)
     NSString* templateName = [parameters isKindOfClass:[NSDictionary class]] ? [parameters objectForKey:@"$template"] : nil;
     if (templateName != nil)
         fetch = [[[self class] managedObjectModel] fetchRequestFromTemplateWithName:templateName substitutionVariables:parameters];
-
+	
     // If no fetch template was found, generate one
     if (fetch == nil) {
         id sortParameters = [parameters isKindOfClass:[NSDictionary class]] ?
-            [CoreUtils sortDescriptorsFromParameters:[parameters objectForKey:@"$sort"]] : nil;
+		[CoreUtils sortDescriptorsFromParameters:[parameters objectForKey:@"$sort"]] : nil;
         fetch = [self fetchRequestWithSort:sortParameters 
-            andPredicate:templateName != nil ? 
-                [self variablePredicateWithParameters:parameters] :
-                [self predicateWithParameters:parameters]];
+							  andPredicate:templateName != nil ? 
+				 [self variablePredicateWithParameters:parameters] :
+				 [self predicateWithParameters:parameters]];
         
         // If there's a template name, store this fetch as a template
         if (templateName != nil) {
             [[[self class] managedObjectModel] setFetchRequestTemplate:fetch forName:templateName];
-                
+			
             // Now apply the substitution variables by resetting the fetch request to the template-provided version
             if (parameters != nil)
                 fetch = [[[self class] managedObjectModel] fetchRequestFromTemplateWithName:templateName substitutionVariables:parameters];
@@ -882,7 +936,7 @@
 + (NSFetchRequest*) fetchRequestWithDefaultSort {
     NSFetchRequest *fetchRequest = [self fetchRequest];
     [fetchRequest setSortDescriptors:[NSArray arrayWithObject:
-        [[[NSSortDescriptor alloc] initWithKey:[self localIdField] ascending:YES] autorelease]]];
+									  [[[NSSortDescriptor alloc] initWithKey:[self localIdField] ascending:YES] autorelease]]];
     return fetchRequest;
 }
 
@@ -920,9 +974,9 @@
 
 + (CoreResultsController*) coreResultsControllerWithRequest:(NSFetchRequest*)fetchRequest andSectionKey:(NSString*)sectionKey {
     CoreResultsController* coreResultsController = [[[CoreResultsController alloc] initWithFetchRequest:fetchRequest 
-        managedObjectContext:[[self coreManager] managedObjectContext] 
-        sectionNameKeyPath:sectionKey 
-        cacheName:@"Root"] autorelease];
+																				   managedObjectContext:[[self coreManager] managedObjectContext] 
+																					 sectionNameKeyPath:sectionKey 
+																							  cacheName:@"Root"] autorelease];
     coreResultsController.entityClass = self;
     return coreResultsController;
 }

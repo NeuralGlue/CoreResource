@@ -68,8 +68,8 @@ typedef enum _Action {
 //+ (id) resourceCollectionFromJSONCollection:(id)jsonCollection withParent:(id)parent;
 //+ (id) resourcePropertiesFromJSONElement:(id)jsonElement withParent:(id)parent;
 
-- (NSString*) toJson;
-- (NSString*) toJson:(id)options;
+- (NSString*) toJson DEPRECATED_ATTRIBUTE; 
+- (NSString*) toJson:(id)options DEPRECATED_ATTRIBUTE;
 - (NSMutableDictionary*) properties;
 - (NSMutableDictionary*) properties:(NSDictionary*)options;
 - (NSMutableDictionary*) properties:(NSDictionary*)options withoutObjects:(NSArray*)withouts;
@@ -137,6 +137,7 @@ typedef enum _Action {
 #pragma mark -
 #pragma mark Remote
 -(BOOL) isInRemoteCollection;
+-(void)push;
 -(void)pushForAction:(Action)action;
 -(void)pushForAction:(Action)action AndNotify:(id)del withSelector:(SEL)selector;
 -(CoreRequest *)requestForPushForAction:(Action)action;

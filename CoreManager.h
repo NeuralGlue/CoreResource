@@ -84,7 +84,7 @@
     Creates and returns a new NSManagedObjectContext pointing to the main persistent store
 */
 - (NSManagedObjectContext*) newContext;
-
+- (NSManagedObject*)makeSafe:(NSManagedObject*)object; // safely makes an managed object available independent of the thread
 - (void) mergeContext:(NSNotification*)notification;
 
 @end

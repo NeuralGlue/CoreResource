@@ -8,7 +8,9 @@
 
 #import "CoreResourceTestCase.h"
 
-@interface CoreResourceCreateTests : CoreResourceTestCase {}
+@interface CoreResourceCreateTests : CoreResourceTestCase {
+	Artist *artist_;
+}
 @end
 
 @implementation CoreResourceCreateTests
@@ -24,18 +26,26 @@
     [self validateSecondArtist:artistTwo];
 	[Artist destroyAllLocal];
 }
+
+-(void) testCreateRemote {
+	Artist *artistOne = [Artist create:[self artistData:0]];
+	artistOne.resourceId = nil;
+	[[artistOne managedObjectContext] save:nil];
+	[artistOne push];
+}
 -(void) testCreateRemoteWithoutLocal {
 	[self prepare:@selector(testCreateRemoteWithoutLocal)];
 	Artist* artistOne = [Artist create:[self artistData:1]];
-	[artistOne pushForAction:Create AndNotify:self withSelector:@selector(midpointTestCreateRemote:)];
+	[[CoreManager sharedCoreManager] save];
+	[artistOne pushForAction:Create AndNotify:self withSelector:@selector(midpointTestCreateRemoteWithOutLocal:)];
 	[self waitForStatus:kGHUnitWaitStatusSuccess timeout:10.0];
 }
--(void) midpointTestCreateRemote:(CoreRequest *)request {
+-(void) midpointTestCreateRemoteWithOutLocal:(CoreRequest *)request {
 	[[[[Artist class] coreManager] managedObjectContext] rollback]; // sneakily we didn't save
 	[Artist findAllRemote];
-	[self performSelector:@selector(completeTestCreateRemote) withObject:nil afterDelay:5];
+	[self performSelector:@selector(completeTestCreateRemoteWithoutLocal) withObject:nil afterDelay:5];
 }
--(void) completeTestCreateRemote {
+-(void) completeTestCreateRemoteWithoutLocal {
 	NSFetchRequest *fetch = [Artist fetchRequestWithSort:nil andPredicate:[NSPredicate predicateWithFormat:@"name like \"Peter Gabriel\""]];
 	NSArray *artists = [[[[Artist class]coreManager] managedObjectContext] executeFetchRequest:fetch error:nil];
 	Artist *peterGabriel = [artists objectAtIndex:0];
@@ -43,9 +53,23 @@
 	GHAssertTrue([peterGabriel isInRemoteCollection], @"The resource should have a remote Id");
 	[self notify:kGHUnitWaitStatusSuccess forSelector:@selector(testCreateRemoteWithoutLocal)];
 }
-/*
-- (void) testCreateOrUpdateWithDictionary { GHFail(nil); }
-- (void) testCreateOrUpdateWithDictionaryAndRelationship { GHFail(nil); }
-*/
+
+-(void) testCreateRemoteWithLocal {
+	
+	[self prepare:@selector(testCreateRemoteWithLocal)];
+	artist_ = [[Artist create:[self artistData:0]]retain];
+	artist_.resourceId = nil;
+	[[CoreManager sharedCoreManager] save];
+	[artist_ push];
+	[self performSelector:@selector(completeTestCreateRemoteWithLocal) withObject:nil afterDelay:5];
+	[self waitForStatus:kGHUnitWaitStatusSuccess timeout:1000.0];
+}
+
+-(void) completeTestCreateRemoteWithLocal {
+	// Examine the retained artist:
+	GHAssertTrue([artist_ isInRemoteCollection], @"The resource should now have a remote Id");
+	DLog(@"Artist Id: %@ Name: %@", artist_.resourceId, artist_.name);
+	[self notify:kGHUnitWaitStatusSuccess forSelector:@selector(testCreateRemoteWithLocal)];
+}
 
 @end

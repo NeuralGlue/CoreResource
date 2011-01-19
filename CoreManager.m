@@ -17,6 +17,7 @@
 #define CRDEFAULT_DATETIME_FORMAT @"yyyy-MM-dd'T'HH:mm:ss'Z'"
 #define CRDEFAULT_PERSISTENTSTORE_NAME @"coreresource.sqlite"
 #define CRDEFAULT_PERSISTENTSTORE_TYPE NSSQLiteStoreType
+#define CONTEXT_KEY @"ManagedObjectContext"
 
 @interface CoreManager()
 @property (nonatomic, retain) NSManagedObjectModel *managedObjectModel;
@@ -56,6 +57,8 @@ static CoreManager* sharedCoreManager = nil;
 		if (sharedCoreManager == nil) {
 			sharedCoreManager = [[self alloc] init];
 			sharedCoreManager.debugName = @"New Manager";
+			// TODO: Do we need to be merging contexts to ensure that the changes are maintained?
+			[[NSNotificationCenter defaultCenter] addObserver:sharedCoreManager selector:@selector(mergeContext:) name:NSManagedObjectContextDidSaveNotification object:nil];
 			DLog(@"New shared Core Manager %@", sharedCoreManager.debugName);
 
 		}
@@ -159,9 +162,7 @@ static CoreManager* sharedCoreManager = nil;
 
 - (void) enqueueRequest:(ASIHTTPRequest*)request {
 	DLog(@"[CoreManager#enqueueRequest] request queued: %@", request.url);
-    if ([CoreManager sharedCoreManager].logLevel > 2) // CHANGED removed semicolon
-        NSLog(@"[CoreManager#enqueueRequest] request queued: %@", request.url);
-	if (request) { // no point in adding a nil request
+   	if (request) { // no point in adding a nil request
 		[requestQueue addOperation:request];
 	}
     
@@ -229,13 +230,50 @@ static CoreManager* sharedCoreManager = nil;
 	}
 	return databaseName;
 }
--(NSManagedObjectContext *)managedObjectContext {
-	if (managedObjectContext == nil) {
-		NSManagedObjectContext *aContext = [[NSManagedObjectContext alloc] init];
-		[aContext setPersistentStoreCoordinator:self.persistentStoreCoordinator];
-		self.managedObjectContext = aContext;
-	}
-	return managedObjectContext;
+
+-(NSManagedObject*)makeSafe:(NSManagedObject*)object
+{
+    if ([object managedObjectContext] != [self managedObjectContext])
+    {               
+        NSError * error = nil;
+        object =  [[self managedObjectContext] existingObjectWithID:[object objectID] error:&error];
+		
+        if (error) 
+        {
+            NSLog(@"Error makeSafe: %@", error);
+        }
+    }
+	
+    return object;
+}
+
+- (NSManagedObjectContext *) managedObjectContext 
+{   
+	
+    NSThread * thisThread = [NSThread currentThread];
+    if (thisThread == [NSThread mainThread]) 
+    {
+        //Main thread just return default context
+		if (managedObjectContext == nil) {
+			NSManagedObjectContext *aContext = [[NSManagedObjectContext alloc] init];
+			[aContext setPersistentStoreCoordinator:self.persistentStoreCoordinator];
+			self.managedObjectContext = aContext;
+		}
+		return managedObjectContext;
+    }
+    else 
+    {
+        //Thread safe trickery
+        NSManagedObjectContext *threadManagedObjectContext = [[thisThread threadDictionary] objectForKey:CONTEXT_KEY]; 
+        if (threadManagedObjectContext == nil)
+        {
+            threadManagedObjectContext = [[[NSManagedObjectContext alloc] init] autorelease];
+            [threadManagedObjectContext setPersistentStoreCoordinator: [self persistentStoreCoordinator]];
+            [[thisThread threadDictionary] setObject:threadManagedObjectContext forKey:CONTEXT_KEY];
+        }
+		
+        return threadManagedObjectContext;
+    }
 }
 - (void)save {
     NSError *error = nil;
@@ -288,16 +326,22 @@ static CoreManager* sharedCoreManager = nil;
 }
 
 - (NSManagedObjectContext*)newContext {
-    NSManagedObjectContext* context = [[NSManagedObjectContext alloc] init];
-    [context setPersistentStoreCoordinator:persistentStoreCoordinator];
-    return context; // note that this is not an autoreleased object
+    NSManagedObjectContext *newContext = [[[NSManagedObjectContext alloc] init] autorelease];
+    [newContext setPersistentStoreCoordinator:self.persistentStoreCoordinator];
+    return newContext; 
 }
 
 
 - (void) mergeContext:(NSNotification*)notification {
     NSAssert([NSThread mainThread], @"Must be on the main thread!");
-    [managedObjectContext mergeChangesFromContextDidSaveNotification:notification];
-  //  DLog(@"\n\nMerged context, now has contents:\n\n %@ \n\n", [[Artist findAllLocal] resources]);
+	NSManagedObjectContext *context = (NSManagedObjectContext *)[notification object];
+	DLog(@"\n\nMerged context, has updates: %@ , inserts: %@ and deletes:%@", 
+		 [context updatedObjects], 
+		 [context insertedObjects], 
+		 [context deletedObjects]);
+	
+    [self.managedObjectContext mergeChangesFromContextDidSaveNotification:notification];
+    
 }
 
 
